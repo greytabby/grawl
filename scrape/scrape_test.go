@@ -1,4 +1,4 @@
-package linkfinder
+package scrape
 
 import (
 	"strings"
