@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -13,10 +14,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func newTestServer(t *testing.T) *httptest.Server {
+func newTestServer(t *testing.T, testfile string) *httptest.Server {
 	t.Helper()
 
-	f, err := os.Open("testdata/crawl.html")
+	f, err := os.Open(testfile)
 	assert.NoError(t, err)
 	defer f.Close()
 	content, err := ioutil.ReadAll(f)
@@ -34,7 +35,7 @@ func newTestServer(t *testing.T) *httptest.Server {
 }
 
 func TestCrawl(t *testing.T) {
-	ts := newTestServer(t)
+	ts := newTestServer(t, "testdata/crawl.html")
 	defer ts.Close()
 	baseURL := ts.URL
 	depth := 2
@@ -50,5 +51,25 @@ func TestCrawl(t *testing.T) {
 	}, "\n")
 	got := buf.String()
 
+	assert.Equal(t, want, got)
+}
+
+func TestCrawlWithHostsLimit(t *testing.T) {
+	ts := newTestServer(t, "testdata/crawl-with-host-limit.html")
+	defer ts.Close()
+	URL, _ := url.Parse(ts.URL)
+	limitRule := NewLimitRule()
+	limitRule.AddAllowedHosts(URL.Host)
+	buf := bytes.NewBuffer([]byte{})
+	c := NewCrawlerWithLimitRule(ts.URL, 2, buf, limitRule)
+	c.Crawl()
+
+	want := strings.Join([]string{
+		ts.URL,
+		ts.URL + "/image/test1.png",
+		ts.URL + "/image/test2.jpg",
+		"",
+	}, "\n")
+	got := buf.String()
 	assert.Equal(t, want, got)
 }

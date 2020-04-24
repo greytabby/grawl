@@ -21,12 +21,21 @@ type Crawler struct {
 	baseURL    *url.URL
 	MaxDepth   int
 	w          io.Writer
+	limitRule  *LimitRule
 }
 
-// NewCrawler returns `Crawler`.
+var defaultLimitRule = NewLimitRule()
+
+// NewCrawler returns `*Crawler`.
 func NewCrawler(URL string, maxDepth int, w io.Writer) *Crawler {
 	u, _ := url.Parse(URL)
-	return &Crawler{baseRawURL: URL, baseURL: u, MaxDepth: maxDepth, w: w}
+	return &Crawler{baseRawURL: URL, baseURL: u, MaxDepth: maxDepth, w: w, limitRule: defaultLimitRule}
+}
+
+// NewCrawlerWithLimitRule returns `*Crawler` with LimitRule.
+func NewCrawlerWithLimitRule(URL string, maxDepth int, w io.Writer, limitRule *LimitRule) *Crawler {
+	u, _ := url.Parse(URL)
+	return &Crawler{baseRawURL: URL, baseURL: u, MaxDepth: maxDepth, w: w, limitRule: limitRule}
 }
 
 // Crawl start crawling
@@ -35,11 +44,7 @@ func (c *Crawler) Crawl() {
 }
 
 func (c *Crawler) crawl(URL string, depth int) {
-	if depth > c.MaxDepth {
-		return
-	}
-
-	if !isValidURL(URL) {
+	if !c.canVisit(URL, depth) {
 		return
 	}
 
@@ -54,14 +59,31 @@ func (c *Crawler) crawl(URL string, depth int) {
 		return
 	}
 
-	currentURL, err := url.Parse(URL)
-	if err != nil {
-		return
-	}
+	u, _ := url.Parse(URL)
 	for _, l := range links {
-		u := c.fixURL(currentURL, l)
+		u := c.fixURL(u, l)
 		c.crawl(u, depth+1)
 	}
+}
+
+func (c *Crawler) canVisit(URL string, depth int) bool {
+	if depth > c.MaxDepth {
+		return false
+	}
+
+	if !isValidURL(URL) {
+		return false
+	}
+
+	u, err := url.Parse(URL)
+	if err != nil {
+		return false
+	}
+
+	if !c.limitRule.IsAllow(u) {
+		return false
+	}
+	return true
 }
 
 func isValidURL(URL string) bool {
