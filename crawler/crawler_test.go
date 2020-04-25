@@ -47,6 +47,7 @@ func TestCrawl(t *testing.T) {
 		baseURL,
 		baseURL + "/image/test1.png",
 		baseURL + "/image/test2.jpg",
+		baseURL + "/relative/test3",
 		"",
 	}, "\n")
 	got := buf.String()
@@ -68,6 +69,23 @@ func TestCrawlWithHostsLimit(t *testing.T) {
 		ts.URL,
 		ts.URL + "/image/test1.png",
 		ts.URL + "/image/test2.jpg",
+		"",
+	}, "\n")
+	got := buf.String()
+	assert.Equal(t, want, got)
+}
+
+func TestCrawlDontVisitSameURL(t *testing.T) {
+	ts := newTestServer(t, "testdata/crawl-dont-visit-same-url.html")
+	defer ts.Close()
+	buf := bytes.NewBuffer([]byte{})
+	c := NewCrawler(ts.URL, 2, buf)
+	c.Crawl()
+
+	want := strings.Join([]string{
+		ts.URL,
+		ts.URL + "/image/test1",
+		ts.URL + "/image/test2",
 		"",
 	}, "\n")
 	got := buf.String()

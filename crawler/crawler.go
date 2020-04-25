@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"sync"
 
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
@@ -22,6 +23,8 @@ type Crawler struct {
 	MaxDepth   int
 	w          io.Writer
 	limitRule  *LimitRule
+	set        map[string]bool
+	mux        sync.RWMutex
 }
 
 var defaultLimitRule = NewLimitRule()
@@ -29,13 +32,21 @@ var defaultLimitRule = NewLimitRule()
 // NewCrawler returns `*Crawler`.
 func NewCrawler(URL string, maxDepth int, w io.Writer) *Crawler {
 	u, _ := url.Parse(URL)
-	return &Crawler{baseRawURL: URL, baseURL: u, MaxDepth: maxDepth, w: w, limitRule: defaultLimitRule}
+	return &Crawler{
+		baseRawURL: URL,
+		baseURL:    u,
+		MaxDepth:   maxDepth,
+		w:          w,
+		limitRule:  defaultLimitRule,
+		set:        map[string]bool{},
+	}
 }
 
 // NewCrawlerWithLimitRule returns `*Crawler` with LimitRule.
 func NewCrawlerWithLimitRule(URL string, maxDepth int, w io.Writer, limitRule *LimitRule) *Crawler {
-	u, _ := url.Parse(URL)
-	return &Crawler{baseRawURL: URL, baseURL: u, MaxDepth: maxDepth, w: w, limitRule: limitRule}
+	c := NewCrawler(URL, maxDepth, w)
+	c.limitRule = limitRule
+	return c
 }
 
 // Crawl start crawling
@@ -43,64 +54,81 @@ func (c *Crawler) Crawl() {
 	c.crawl(c.baseRawURL, 1)
 }
 
-func (c *Crawler) crawl(URL string, depth int) {
+func (c *Crawler) crawl(rawURL string, depth int) {
+	if depth > c.MaxDepth {
+		return
+	}
+
+	URL, err := url.Parse(rawURL)
+	if err != nil {
+		return
+	}
 	if !c.canVisit(URL, depth) {
 		return
 	}
 
-	fmt.Fprintf(c.w, "%s\n", URL)
-	body, err := c.fetch(URL)
+	links, err := c.visit(URL)
 	if err != nil {
 		return
 	}
 
-	links, err := c.extractLinks(body)
-	if err != nil {
-		return
-	}
-
-	u, _ := url.Parse(URL)
-	for _, l := range links {
-		u := c.fixURL(u, l)
-		c.crawl(u, depth+1)
+	for _, link := range links {
+		nextRawURL := fixURL(URL, link)
+		c.crawl(nextRawURL, depth+1)
 	}
 }
 
-func (c *Crawler) canVisit(URL string, depth int) bool {
-	if depth > c.MaxDepth {
-		return false
-	}
-
+func (c *Crawler) canVisit(URL *url.URL, depth int) bool {
 	if !isValidURL(URL) {
 		return false
 	}
 
-	u, err := url.Parse(URL)
-	if err != nil {
+	if !c.limitRule.IsAllow(URL) {
 		return false
 	}
 
-	if !c.limitRule.IsAllow(u) {
+	if c.hasVisited(toNoneQueryAndFragmentURL(URL)) {
 		return false
 	}
+
 	return true
 }
 
-func isValidURL(URL string) bool {
-	u, err := url.Parse(URL)
-	if err != nil {
+func isValidURL(URL *url.URL) bool {
+	if URL.Scheme != "http" && URL.Scheme != "https" {
 		return false
 	}
 
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return false
-	}
-
-	if u.Host == "" {
+	if URL.Host == "" {
 		return false
 	}
 
 	return true
+}
+
+func (c *Crawler) hasVisited(URL string) bool {
+	c.mux.RLock()
+	defer c.mux.RUnlock()
+	visited, _ := c.set[URL]
+	return visited
+}
+
+func (c *Crawler) setVisit(URL string) {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+	c.set[URL] = true
+}
+
+func (c *Crawler) visit(URL *url.URL) ([]string, error) {
+	fmt.Fprintf(c.w, "%s\n", URL.String())
+	u := toNoneQueryAndFragmentURL(URL)
+	c.setVisit(u)
+	body, err := c.fetch(URL.String())
+	if err != nil {
+		return []string{}, err
+	}
+
+	return extractLinks(body)
 }
 
 func (c *Crawler) fetch(URL string) (body []byte, err error) {
@@ -109,14 +137,15 @@ func (c *Crawler) fetch(URL string) (body []byte, err error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	body, err = ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	return body, nil
+	return ioutil.ReadAll(resp.Body)
 }
 
-func (c *Crawler) extractLinks(body []byte) (links []string, err error) {
+func toNoneQueryAndFragmentURL(URL *url.URL) string {
+	u := URL.Scheme + URL.Host + URL.Path
+	return strings.TrimRight(u, "/")
+}
+
+func extractLinks(body []byte) (links []string, err error) {
 	rootNode, err := html.Parse(bytes.NewReader(body))
 	if err != nil {
 		return nil, err
@@ -129,7 +158,7 @@ func (c *Crawler) extractLinks(body []byte) (links []string, err error) {
 	return links, nil
 }
 
-func (c *Crawler) fixURL(currentURL *url.URL, nextURL string) string {
+func fixURL(currentURL *url.URL, nextURL string) string {
 	u, err := url.Parse(nextURL)
 
 	if err != nil {
