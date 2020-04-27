@@ -53,8 +53,8 @@ func NewCrawlerWithLimitRule(URL string, maxDepth int, w io.Writer, limitRule *L
 	return c
 }
 
-func (c *Crawler) SetFetcher(fetcher Fetcher) {
-	c.fetcher = fetcher
+func (c *Crawler) UseHeadlessChrome() {
+	c.fetcher = new(fetcher.HeadlessChrome)
 }
 
 // Crawl start crawling
