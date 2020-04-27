@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"net/http"
 	"net/url"
 	"path"
 	"strings"
@@ -14,12 +12,14 @@ import (
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 
+	"github.com/greytabby/grawl/fetcher"
 	"github.com/greytabby/grawl/scrape"
 )
 
 type Crawler struct {
 	baseRawURL string
 	maxDepth   int
+	fetcher    Fetcher
 	w          io.Writer
 	limitRule  *LimitRule
 	set        map[string]bool
@@ -28,11 +28,18 @@ type Crawler struct {
 
 var defaultLimitRule = NewLimitRule()
 
+// Fetcher sends GET request to the given URL and
+// returns response body
+type Fetcher interface {
+	Fetch(URL string) (body []byte, err error)
+}
+
 // NewCrawler returns `*Crawler`.
 func NewCrawler(URL string, maxDepth int, w io.Writer) *Crawler {
 	return &Crawler{
 		baseRawURL: URL,
 		maxDepth:   maxDepth,
+		fetcher:    new(fetcher.DefaultFetcher),
 		w:          w,
 		limitRule:  defaultLimitRule,
 		set:        map[string]bool{},
@@ -44,6 +51,10 @@ func NewCrawlerWithLimitRule(URL string, maxDepth int, w io.Writer, limitRule *L
 	c := NewCrawler(URL, maxDepth, w)
 	c.limitRule = limitRule
 	return c
+}
+
+func (c *Crawler) SetFetcher(fetcher Fetcher) {
+	c.fetcher = fetcher
 }
 
 // Crawl start crawling
@@ -129,12 +140,7 @@ func (c *Crawler) visit(URL *url.URL) ([]string, error) {
 }
 
 func (c *Crawler) fetch(URL string) (body []byte, err error) {
-	resp, err := http.Get(URL)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	return ioutil.ReadAll(resp.Body)
+	return c.fetcher.Fetch(URL)
 }
 
 func toNoneQueryAndFragmentURL(URL *url.URL) string {
