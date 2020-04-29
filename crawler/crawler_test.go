@@ -34,6 +34,20 @@ func newTestServer(t *testing.T, testfile string) *httptest.Server {
 	return ts
 }
 
+func confirmCrawlResult(t *testing.T, want, got []string) bool {
+	wantl := len(want)
+	count := 0
+	for _, g := range got {
+		for _, w := range want {
+			if g == w {
+				count++
+				break
+			}
+		}
+	}
+	return wantl == count
+}
+
 func TestCrawl(t *testing.T) {
 	ts := newTestServer(t, "testdata/crawl.html")
 	defer ts.Close()
@@ -43,16 +57,17 @@ func TestCrawl(t *testing.T) {
 	crawler := NewCrawler(baseURL, depth, buf)
 	crawler.Crawl()
 
-	want := strings.Join([]string{
+	want := []string{
 		baseURL,
 		baseURL + "/image/test1.png",
 		baseURL + "/image/test2.jpg",
 		baseURL + "/relative/test3",
-		"",
-	}, "\n")
-	got := buf.String()
+	}
+	got := strings.Split(buf.String(), "\n")
 
-	assert.Equal(t, want, got)
+	if !confirmCrawlResult(t, want, got) {
+		t.Error("want:", want, "got:", got)
+	}
 }
 
 func TestCrawlWithHostsLimit(t *testing.T) {
@@ -65,14 +80,15 @@ func TestCrawlWithHostsLimit(t *testing.T) {
 	c := NewCrawlerWithLimitRule(ts.URL, 2, buf, limitRule)
 	c.Crawl()
 
-	want := strings.Join([]string{
+	want := []string{
 		ts.URL,
 		ts.URL + "/image/test1.png",
 		ts.URL + "/image/test2.jpg",
-		"",
-	}, "\n")
-	got := buf.String()
-	assert.Equal(t, want, got)
+	}
+	got := strings.Split(buf.String(), "\n")
+	if !confirmCrawlResult(t, want, got) {
+		t.Error("want:", want, "got:", got)
+	}
 }
 
 func TestCrawlDontVisitSameURL(t *testing.T) {
@@ -82,12 +98,13 @@ func TestCrawlDontVisitSameURL(t *testing.T) {
 	c := NewCrawler(ts.URL, 2, buf)
 	c.Crawl()
 
-	want := strings.Join([]string{
+	want := []string{
 		ts.URL,
 		ts.URL + "/image/test1",
 		ts.URL + "/image/test2",
-		"",
-	}, "\n")
-	got := buf.String()
-	assert.Equal(t, want, got)
+	}
+	got := strings.Split(buf.String(), "\n")
+	if !confirmCrawlResult(t, want, got) {
+		t.Error("want:", want, "got:", got)
+	}
 }

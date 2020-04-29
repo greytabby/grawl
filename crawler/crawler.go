@@ -17,16 +17,21 @@ import (
 )
 
 type Crawler struct {
-	baseRawURL string
-	maxDepth   int
-	fetcher    Fetcher
-	w          io.Writer
-	limitRule  *LimitRule
-	set        map[string]bool
-	mux        sync.RWMutex
+	baseRawURL  string
+	maxDepth    int
+	fetcher     Fetcher
+	w           io.Writer
+	limitRule   *LimitRule
+	parallelism chan struct{}
+	set         map[string]bool
+	mux         sync.RWMutex
+	wg          sync.WaitGroup
 }
 
-var defaultLimitRule = NewLimitRule()
+var (
+	defaultLimitRule   = NewLimitRule()
+	defaultParallelism = 5
+)
 
 // Fetcher sends GET request to the given URL and
 // returns response body
@@ -37,12 +42,13 @@ type Fetcher interface {
 // NewCrawler returns `*Crawler`.
 func NewCrawler(URL string, maxDepth int, w io.Writer) *Crawler {
 	return &Crawler{
-		baseRawURL: URL,
-		maxDepth:   maxDepth,
-		fetcher:    new(fetcher.DefaultFetcher),
-		w:          w,
-		limitRule:  defaultLimitRule,
-		set:        map[string]bool{},
+		baseRawURL:  URL,
+		maxDepth:    maxDepth,
+		fetcher:     new(fetcher.DefaultFetcher),
+		w:           w,
+		limitRule:   defaultLimitRule,
+		parallelism: make(chan struct{}, defaultParallelism),
+		set:         map[string]bool{},
 	}
 }
 
@@ -53,16 +59,31 @@ func NewCrawlerWithLimitRule(URL string, maxDepth int, w io.Writer, limitRule *L
 	return c
 }
 
+// UseHeadlessChrome use headless chrome at the time of request.
+// By default, using `http.Get()`.
 func (c *Crawler) UseHeadlessChrome() {
 	c.fetcher = new(fetcher.HeadlessChrome)
 }
 
+// SetParallelism set limit of crawling parallelism.
+// By default, parallelism is 5.
+func (c *Crawler) SetParallelism(n int) {
+	c.parallelism = make(chan struct{}, n)
+}
+
 // Crawl start crawling
 func (c *Crawler) Crawl() {
-	c.crawl(c.baseRawURL, 1)
+	c.wg.Add(1)
+	go c.crawl(c.baseRawURL, 0)
+	c.wg.Wait()
 }
 
 func (c *Crawler) crawl(rawURL string, depth int) {
+	defer c.wg.Done()
+	c.parallelism <- struct{}{}
+	defer func() {
+		<-c.parallelism
+	}()
 	if depth > c.maxDepth {
 		return
 	}
@@ -82,7 +103,8 @@ func (c *Crawler) crawl(rawURL string, depth int) {
 
 	for _, link := range links {
 		nextRawURL := fixURL(URL, link)
-		c.crawl(nextRawURL, depth+1)
+		c.wg.Add(1)
+		go c.crawl(nextRawURL, depth+1)
 	}
 }
 
@@ -131,7 +153,7 @@ func (c *Crawler) visit(URL *url.URL) ([]string, error) {
 	fmt.Fprintf(c.w, "%s\n", URL.String())
 	u := toNoneQueryAndFragmentURL(URL)
 	c.setVisit(u)
-	body, err := c.fetch(URL.String())
+	body, err := c.fetcher.Fetch(URL.String())
 	if err != nil {
 		return []string{}, err
 	}
@@ -139,12 +161,8 @@ func (c *Crawler) visit(URL *url.URL) ([]string, error) {
 	return extractLinks(body)
 }
 
-func (c *Crawler) fetch(URL string) (body []byte, err error) {
-	return c.fetcher.Fetch(URL)
-}
-
 func toNoneQueryAndFragmentURL(URL *url.URL) string {
-	u := URL.Scheme + URL.Host + URL.Path
+	u := URL.Scheme + "://" + URL.Host + URL.Path
 	return strings.TrimRight(u, "/")
 }
 

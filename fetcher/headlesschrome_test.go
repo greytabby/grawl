@@ -55,5 +55,4 @@ func TestHeadlessChromeFetch(t *testing.T) {
 </body></html>`)
 
 	assert.Equal(t, want, body)
-	t.Log(string(body))
 }
