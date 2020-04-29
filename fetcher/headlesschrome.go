@@ -16,7 +16,7 @@ func (hc *HeadlessChrome) Fetch(URL string) (body []byte, err error) {
 	var content string
 	err = chromedp.Run(ctx,
 		chromedp.Navigate(URL),
-		chromedp.InnerHTML(`html`, &content, chromedp.ByQuery),
+		chromedp.OuterHTML(`html`, &content, chromedp.ByQuery),
 	)
 	if err != nil {
 		return nil, err

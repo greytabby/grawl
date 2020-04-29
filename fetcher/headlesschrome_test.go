@@ -42,7 +42,7 @@ func TestHeadlessChromeFetch(t *testing.T) {
 	body, err := hc.Fetch(ts.URL)
 	assert.NoError(t, err)
 
-	want := []byte(`<head>
+	want := []byte(`<html><head>
   <link rel="stylesheet" href="test.css">
 </head>
 <body>
@@ -52,7 +52,8 @@ func TestHeadlessChromeFetch(t *testing.T) {
   <div id="content">the content</div>
   <div id="content">the content</div>
 
-</body>`)
+</body></html>`)
 
 	assert.Equal(t, want, body)
+	t.Log(string(body))
 }
