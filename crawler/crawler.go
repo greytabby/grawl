@@ -2,6 +2,8 @@ package crawler
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"net/url"
 	"path"
 	"strings"
@@ -22,6 +24,7 @@ type (
 		limitRule        *LimitRule
 		parallelism      chan struct{}
 		visitedCallbacks []VisitedCallback
+		errorCallbacks   []ErrorCallback
 		set              map[string]bool
 		mux              sync.RWMutex
 		wg               sync.WaitGroup
@@ -39,8 +42,23 @@ var (
 	defaultParallelism = 5
 )
 
-// VisitedCallback is a type of alias for OnVisited callback functions
-type VisitedCallback func(*CrawlResult)
+var (
+	// ErrInvalidURL is the error thrown if visiting URL
+	// is invalid format.
+	ErrInvalidURL = errors.New("Invalid URL")
+	// ErrForbiddenDomain is the error thrown if the host
+	// is not in AllowedHosts.
+	ErrForbiddenHost = errors.New("Forbidden host")
+	// ErrAlreadyVisitedDomain is the error for already visited URL
+	ErrAlreadyVisited = errors.New("Already visited")
+)
+
+type (
+	// VisitedCallback is a type of alias for OnVisited callback functions
+	VisitedCallback func(*CrawlResult)
+	// ErrorCallback is a type of alias for OnError callback functions
+	ErrorCallback func(error)
+)
 
 // Fetcher sends GET request to the given URL and
 // returns response body
@@ -86,10 +104,15 @@ func (c *Crawler) OnVisited(f VisitedCallback) {
 	c.visitedCallbacks = append(c.visitedCallbacks, f)
 }
 
+// OnError register a function. Function will be executed on error occured
+func (c *Crawler) OnError(f ErrorCallback) {
+	c.errorCallbacks = append(c.errorCallbacks, f)
+}
+
 // Crawl start crawling
 func (c *Crawler) Crawl() {
 	c.wg.Add(1)
-	go c.crawl(c.baseRawURL, 0)
+	go c.crawl(c.baseRawURL, 1)
 	c.wg.Wait()
 }
 
@@ -105,14 +128,17 @@ func (c *Crawler) crawl(rawURL string, depth int) {
 
 	URL, err := url.Parse(rawURL)
 	if err != nil {
+		c.handleErrorCallback(err)
 		return
 	}
-	if !c.canVisit(URL) {
+	if err = c.canVisit(URL); err != nil {
+		c.handleErrorCallback(err)
 		return
 	}
 
 	cr, err := c.visit(URL)
 	if err != nil {
+		c.handleErrorCallback(err)
 		return
 	}
 
@@ -123,20 +149,20 @@ func (c *Crawler) crawl(rawURL string, depth int) {
 	}
 }
 
-func (c *Crawler) canVisit(URL *url.URL) bool {
+func (c *Crawler) canVisit(URL *url.URL) error {
 	if !isValidURL(URL) {
-		return false
+		return fmt.Errorf("%v: %s", ErrInvalidURL, URL)
 	}
 
 	if !c.limitRule.IsAllow(URL) {
-		return false
+		return fmt.Errorf("%v: %s", ErrForbiddenHost, URL.Hostname())
 	}
 
 	if c.hasVisited(toNoneQueryAndFragmentURL(URL)) {
-		return false
+		return fmt.Errorf("%v: %s", ErrAlreadyVisited, URL)
 	}
 
-	return true
+	return nil
 }
 
 func isValidURL(URL *url.URL) bool {
@@ -202,6 +228,12 @@ func extractLinks(body []byte) (links []string, err error) {
 func (c *Crawler) handleVisitedCallback(cr *CrawlResult) {
 	for _, f := range c.visitedCallbacks {
 		f(cr)
+	}
+}
+
+func (c *Crawler) handleErrorCallback(err error) {
+	for _, f := range c.errorCallbacks {
+		f(err)
 	}
 }
 

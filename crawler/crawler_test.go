@@ -112,3 +112,39 @@ func TestCrawlDontVisitSameURL(t *testing.T) {
 		t.Error("want:", want, "got:", got)
 	}
 }
+
+func TestCrawlOnError(t *testing.T) {
+	t.Run("Invalid URL", func(t *testing.T) {
+		c := NewCrawler("//test.com", 1)
+		var err error
+		c.OnError(func(e error) {
+			err = e
+		})
+		c.Crawl()
+		assert.EqualError(t, err, fmt.Sprintf("%v: %s", ErrInvalidURL, "//test.com"))
+	})
+
+	t.Run("Forbidden host", func(t *testing.T) {
+		lr := new(LimitRule)
+		lr.AddAllowedHosts("test.com")
+		c := NewCrawlerWithLimitRule("https://not.allow.com/index.html", 1, lr)
+		var err error
+		c.OnError(func(e error) {
+			err = e
+		})
+		c.Crawl()
+		assert.EqualError(t, err, fmt.Sprintf("%v: %s", ErrForbiddenHost, "not.allow.com"))
+	})
+
+	t.Run("Cannot parse url", func(t *testing.T) {
+		c := NewCrawler("?>_&ﬁ·)·‚‚ﬁ°ﬁ‚‚ﬁ", 1)
+		var err error
+		c.OnError(func(e error) {
+			err = e
+		})
+		c.Crawl()
+		assert.Error(t, err)
+	})
+
+	// TODO: Test html parse error
+}
