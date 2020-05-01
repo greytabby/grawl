@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -11,16 +12,23 @@ import (
 )
 
 var (
+	version  string
+	revision string
+)
+
+var (
 	site           string
 	parallelism    int
 	allowedHosts   string
 	depth          int
 	headlessChrome bool
 	outputDir      string
+	v              bool
 	logger         = log.New(os.Stdout, "Grawl ", log.LstdFlags)
 )
 
 func main() {
+	flag.BoolVar(&v, "v", false, "show version")
 	flag.StringVar(&site, "site", "", "Site to crawl")
 	flag.StringVar(&outputDir, "output_dir", "", "Directory name for saving crawl result")
 	flag.IntVar(&parallelism, "parallelism", 5, "Number of parallel execution of crawler")
@@ -43,6 +51,10 @@ func main() {
 }
 
 func run() error {
+	if v {
+		fmt.Println(version)
+		return nil
+	}
 	// Initial settings
 	storage := storage.NewFileStorage(outputDir)
 	lr := crawler.NewLimitRule()

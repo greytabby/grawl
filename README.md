@@ -5,69 +5,115 @@ Simple web crawler for learning.
 [![Build Status](https://travis-ci.com/greytabby/grawl.svg?branch=master)](https://travis-ci.com/greytabby/grawl)
 ![Go](https://github.com/greytabby/grawl/workflows/Go/badge.svg)
 
-## Example
+## Usage
 
-```go
-package main
-
-import (
-	"fmt"
-
-	"github.com/greytabby/grawl/crawler"
-)
-
-func main() {
-	URL := "https://hub.docker.com"
-
-	// Define hosts which crawler can visit.
-	lr := crawler.NewLimitRule()
-	lr.AddAllowedHosts("hub.docker.com")
-
-	c := crawler.NewCrawlerWithLimitRule(URL, 2, lr)
-	// Register resonse and error handling functions.
-	c.OnVisited(func(cr *crawler.CrawlResult) {
-		fmt.Println("Visited:", cr.URL)
-	})
-	c.OnError(func(err error) {
-		fmt.Println("Error:", err.Error())
-	})
-
-	// UseHeadlessChrome on request.
-	c.UseHeadlessChrome()
-
-	c.SetParallelism(3)
-
-	// Start crawling.
-	c.Crawl()
-}
+```Text
+Usage of Grawl:
+  -allowed_hosts string
+        Accessibel hosts. Use comma to specify multiple hosts
+  -depth int
+        Limit number of follow links on crawling (default 1)
+  -headless_chrome
+        Use headless chrome on crawling
+  -output_dir string
+        Directory name for saving crawl result
+  -parallelism int
+        Number of parallel execution of crawler (default 5)
+  -site string
+        Site to crawl
+  -v    show version
 ```
 
-Output
+## Example
+
+### Command
+
+```sh
+./Grawl -site "https://hub.docker.com" \
+-allowed_hosts hub.docker.com \
+-depth 2 \
+-headless_chrome \
+-parallelism 10 \
+-output_dir /tmp/dockerhub
+```
+
+### Output
+
+console log
 
 ```text
-Visited: https://hub.docker.com
-Error: Forbidden host: blog.docker.com
-Error: Forbidden host: docs.docker.com
-Error: Forbidden host: www.docker.com
-Error: Already visited: https://hub.docker.com/
-Error: Already visited: https://hub.docker.com/search
-Visited: https://hub.docker.com/signup
-Error: Invalid URL: 
-Error: Forbidden host: docs.docker.com
-Error: Forbidden host: www.docker.com
-Visited: https://hub.docker.com/_/busybox
-Visited: https://hub.docker.com/search
-Visited: https://hub.docker.com/_/node
-Error: Forbidden host: twitter.com
-Error: Forbidden host: www.docker.com
-Error: Forbidden host: www.facebook.com
-Error: Forbidden host: www.docker.com
-Error: Forbidden host: www.docker.com
-Error: Forbidden host: www.youtube.com
-Error: Forbidden host: www.docker.com
-Error: Already visited: https://hub.docker.com/signup
+Grawl 2020/05/01 15:44:53 Output base directory: /tmp/dockerhub
+Grawl 2020/05/01 15:44:53 Crawling site: https://hub.docker.com
+Grawl 2020/05/01 15:44:53 Crawling max depth: 2
+Grawl 2020/05/01 15:44:53 Start Crawling...
+Grawl 2020/05/01 15:44:57 Visited: https://hub.docker.com
+Grawl 2020/05/01 15:44:57 Forbidden host: blog.docker.com
+Grawl 2020/05/01 15:44:57 Forbidden host: www.docker.com
+Grawl 2020/05/01 15:44:57 Forbidden host: www.docker.com
+Grawl 2020/05/01 15:44:57 Already visited: https://hub.docker.com/
+Grawl 2020/05/01 15:44:57 Forbidden host: www.docker.com
+Grawl 2020/05/01 15:44:57 Forbidden host: www.docker.com
+Grawl 2020/05/01 15:44:57 Forbidden host: www.linkedin.com
+Grawl 2020/05/01 15:44:57 Forbidden host: www.youtube.com
+Grawl 2020/05/01 15:44:57 Forbidden host: www.docker.com
+Grawl 2020/05/01 15:44:57 Already visited: https://hub.docker.com/search
+Grawl 2020/05/01 15:45:06 Visited: https://hub.docker.com/signup
+Grawl 2020/05/01 15:45:06 Visited: https://hub.docker.com/_/redis
+Grawl 2020/05/01 15:45:07 Visited: https://hub.docker.com/_/ubuntu
+Grawl 2020/05/01 15:45:07 Visited: https://hub.docker.com/_/nginx
+Grawl 2020/05/01 15:45:07 Visited: https://hub.docker.com/_/postgres
+Grawl 2020/05/01 15:45:07 Visited: https://hub.docker.com/_/node
+Grawl 2020/05/01 15:45:07 Visited: https://hub.docker.com/_/alpine
+Grawl 2020/05/01 15:45:08 Visited: https://hub.docker.com/_/couchbase
+Grawl 2020/05/01 15:45:08 Already visited: https://hub.docker.com/signup
+Grawl 2020/05/01 15:45:08 Already visited: https://hub.docker.com/search
+Grawl 2020/05/01 15:45:08 Invalid URL: 
+Grawl 2020/05/01 15:45:08 Invalid URL: 
 .
 .
 .
 
+```
+
+output directory tree
+
+```text
+/tmp/dockerhub
+└── hub_docker_com
+    ├── _
+    │   ├── aerospike
+    │   │   └── index.html
+    │   ├── alpine
+    │   │   └── index.html
+    │   ├── busybox
+    │   │   └── index.html
+    │   ├── couchbase
+    │   │   └── index.html
+    │   ├── golang
+    │   │   └── index.html
+    │   ├── hello-world
+    │   │   └── index.html
+    │   ├── mongo
+    │   │   └── index.html
+    │   ├── mysql
+    │   │   └── index.html
+    │   ├── nginx
+    │   │   └── index.html
+    │   ├── node
+    │   │   └── index.html
+    │   ├── postgres
+    │   │   └── index.html
+    │   ├── redis
+    │   │   └── index.html
+    │   ├── registry
+    │   │   └── index.html
+    │   ├── traefik
+    │   │   └── index.html
+    │   └── ubuntu
+    │       └── index.html
+    ├── index.html
+    ├── search
+    │   └── index.html
+    └── signup
+        └── index.html
 ```
