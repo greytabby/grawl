@@ -117,3 +117,28 @@ output directory tree
     └── signup
         └── index.html
 ```
+
+## docker-compose
+
+```yml
+version: '2'
+services: 
+  grawl:
+    image: greytabby/grawl:latest
+    volumes:
+      - .:/result/dockerhub
+    environment: 
+      # SITE is url which grawl first visit
+      - SITE=https://hub.docker.com/
+      # ALLOWED_HOSTS are acceessible hosts. Use comma to specify multiple hosts
+      - ALLOWED_HOSTS=hub.docker.com
+      # DEPTH is limit nuber of follow links on crawling
+      - DEPTH=2
+      # PARALLELISM is number of parallel execution of crawler
+      - PARALLELISM=5
+      # HEADLESS_CHROME use headless chreme on crawling
+      # If you do not use headless chrome, delete this variable
+      - HEADLESS_CHROME=
+      # OUTPUT_DIR is directory name for saving crawl result
+      - OUTPUT_DIR=/result/dockerhub
+```
