@@ -34,3 +34,18 @@ jobs:
       run: make vet
     - name: Test
       run: make test
+
+  PushDockerImage:
+    name: PushDockerImage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Docker Build & Push to Docker Hub
+        uses: opspresso/action-docker@master
+        with:
+          args: --docker
+        env:
+          USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          DOCKERFILE: "Dockerfile"
+          IMAGE_NAME: "greytabby/grawl"
+          LATEST: "true"

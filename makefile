@@ -24,6 +24,10 @@ bin/%: deps
 .PHONY: build
 build: bin/$(NAME)
 
+.PHONY: ci-build
+ci-build: deps
+	GOOS=linux CGO_ENABLED=0 go build -ldflags $(LDFLAGS) -o /bin/grawl
+
 .PHONY: clean
 clean:
 	rm -rf bin/
