@@ -31,7 +31,7 @@ type (
 	}
 
 	CrawlResult struct {
-		URL   string
+		URL   *url.URL
 		Body  string
 		Links []string
 	}
@@ -202,7 +202,7 @@ func (c *Crawler) visit(URL *url.URL) (*CrawlResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	cr := &CrawlResult{URL.String(), string(body), links}
+	cr := &CrawlResult{URL, string(body), links}
 	c.handleVisitedCallback(cr)
 	return cr, nil
 }

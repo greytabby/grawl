@@ -54,7 +54,7 @@ func TestCrawl(t *testing.T) {
 	c := NewCrawler(baseURL, depth)
 	got := make([]string, 0)
 	c.OnVisited(func(cr *CrawlResult) {
-		got = append(got, cr.URL)
+		got = append(got, cr.URL.String())
 	})
 	c.Crawl()
 
@@ -79,7 +79,7 @@ func TestCrawlWithHostsLimit(t *testing.T) {
 	c := NewCrawlerWithLimitRule(ts.URL, 2, limitRule)
 	got := make([]string, 0)
 	c.OnVisited(func(cr *CrawlResult) {
-		got = append(got, cr.URL)
+		got = append(got, cr.URL.String())
 	})
 	c.Crawl()
 
@@ -99,7 +99,7 @@ func TestCrawlDontVisitSameURL(t *testing.T) {
 	got := make([]string, 0)
 	c := NewCrawler(ts.URL, 2)
 	c.OnVisited(func(cr *CrawlResult) {
-		got = append(got, cr.URL)
+		got = append(got, cr.URL.String())
 	})
 	c.Crawl()
 
