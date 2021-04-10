@@ -5,7 +5,7 @@ COPY . .
 RUN apk add make
 RUN make ci-build
 
-FROM chromedp/headless-shell
+FROM chromedp/headless-shell:stable
 COPY --from=build /bin/grawl /bin/grawl
 
 # SITE is url which grawl first visit
