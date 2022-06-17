@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"path"
-	"strings"
 	"sync"
 
 	"golang.org/x/net/html"
@@ -165,7 +163,7 @@ func (c *Crawler) canVisit(URL *url.URL) error {
 		return fmt.Errorf("%v: %s", ErrForbidden, URL.String())
 	}
 
-	if c.hasVisited(toNoneQueryAndFragmentURL(URL)) {
+	if c.hasVisited(URL.String()) {
 		return fmt.Errorf("%v: %s", ErrAlreadyVisited, URL)
 	}
 
@@ -198,8 +196,7 @@ func (c *Crawler) setVisit(URL string) {
 }
 
 func (c *Crawler) visit(URL *url.URL) (*CrawlResult, error) {
-	u := toNoneQueryAndFragmentURL(URL)
-	c.setVisit(u)
+	c.setVisit(URL.String())
 	body, err := c.fetcher.Fetch(URL.String())
 	if err != nil {
 		return nil, err
@@ -213,11 +210,6 @@ func (c *Crawler) visit(URL *url.URL) (*CrawlResult, error) {
 	cr := &CrawlResult{URL, string(body), links}
 	c.handleVisitedCallback(cr)
 	return cr, nil
-}
-
-func toNoneQueryAndFragmentURL(URL *url.URL) string {
-	u := URL.Scheme + "://" + URL.Host + URL.Path
-	return strings.TrimRight(u, "/")
 }
 
 func extractLinks(body []byte) (links []string, err error) {
@@ -263,10 +255,9 @@ func fixURL(currentURL *url.URL, nextURL string) string {
 	}
 
 	if u.Host == "" && u.Path != "" {
-		if strings.HasPrefix(u.Path, "/") {
-			return currentURL.Scheme + "://" + currentURL.Host + path.Join(currentURL.Path, u.Path)
-		}
-		return currentURL.Scheme + "://" + currentURL.Host + "/" + path.Join(currentURL.Path, u.Path)
+		u.Host = currentURL.Host
+		u.Scheme = currentURL.Scheme
+		return u.String()
 	}
 
 	return ""

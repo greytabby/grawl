@@ -62,7 +62,7 @@ func TestCrawl(t *testing.T) {
 		baseURL,
 		baseURL + "/image/test1.png",
 		baseURL + "/image/test2.jpg",
-		baseURL + "/relative/test3",
+		baseURL + "/image/../relative/test3",
 	}
 
 	if !confirmCrawlResult(t, want, got) {
@@ -133,7 +133,7 @@ func TestCrawlOnError(t *testing.T) {
 			err = e
 		})
 		c.Crawl()
-		assert.EqualError(t, err, fmt.Sprintf("%v: %s", ErrForbiddenHost, "not.allow.com"))
+		assert.EqualError(t, err, fmt.Sprintf("%v: %s", ErrForbidden, "https://not.allow.com/index.html"))
 	})
 
 	t.Run("Cannot parse url", func(t *testing.T) {
