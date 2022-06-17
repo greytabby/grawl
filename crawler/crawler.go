@@ -23,6 +23,7 @@ type (
 		fetcher          Fetcher
 		limitRule        *LimitRule
 		parallelism      chan struct{}
+		visitCallbacks   []VisitCallback
 		visitedCallbacks []VisitedCallback
 		errorCallbacks   []ErrorCallback
 		set              map[string]bool
@@ -54,6 +55,8 @@ var (
 )
 
 type (
+	// VisitCallback is a type of alias for OnVisit callback functions
+	VisitCallback func(response []byte)
 	// VisitedCallback is a type of alias for OnVisited callback functions
 	VisitedCallback func(*CrawlResult)
 	// ErrorCallback is a type of alias for OnError callback functions
@@ -96,6 +99,11 @@ func (c *Crawler) UseHeadlessChrome() {
 // By default, parallelism is 5.
 func (c *Crawler) SetParallelism(n int) {
 	c.parallelism = make(chan struct{}, n)
+}
+
+// OnVisit register a function. Function will be executed on visiting web site.
+func (c *Crawler) OnVisit(f VisitCallback) {
+	c.visitCallbacks = append(c.visitCallbacks, f)
 }
 
 // OnVisited register a function. Function will be executed on after
@@ -197,6 +205,7 @@ func (c *Crawler) visit(URL *url.URL) (*CrawlResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	c.handleVisitCallback(body)
 
 	links, err := extractLinks(body)
 	if err != nil {
@@ -223,6 +232,12 @@ func extractLinks(body []byte) (links []string, err error) {
 		links[i] = scrape.Attr(v, "href")
 	}
 	return links, nil
+}
+
+func (c *Crawler) handleVisitCallback(response []byte) {
+	for _, f := range c.visitCallbacks {
+		f(response)
+	}
 }
 
 func (c *Crawler) handleVisitedCallback(cr *CrawlResult) {
