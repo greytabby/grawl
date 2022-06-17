@@ -47,9 +47,8 @@ var (
 	// ErrInvalidURL is the error thrown if visiting URL
 	// is invalid format.
 	ErrInvalidURL = errors.New("Invalid URL")
-	// ErrForbiddenDomain is the error thrown if the host
-	// is not in AllowedHosts.
-	ErrForbiddenHost = errors.New("Forbidden host")
+	// ErrForbidden is the error thrown if the url is not allowed to visit
+	ErrForbidden = errors.New("Forbidden")
 	// ErrAlreadyVisitedDomain is the error for already visited URL
 	ErrAlreadyVisited = errors.New("Already visited")
 )
@@ -163,7 +162,7 @@ func (c *Crawler) canVisit(URL *url.URL) error {
 	}
 
 	if !c.limitRule.IsAllow(URL) {
-		return fmt.Errorf("%v: %s", ErrForbiddenHost, URL.Hostname())
+		return fmt.Errorf("%v: %s", ErrForbidden, URL.String())
 	}
 
 	if c.hasVisited(toNoneQueryAndFragmentURL(URL)) {
